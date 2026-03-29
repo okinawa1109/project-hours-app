@@ -1,0 +1,18 @@
+CREATE TABLE IF NOT EXISTS projects (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS work_logs (
+  id SERIAL PRIMARY KEY,
+  work_date DATE NOT NULL,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  hours NUMERIC(5,2) NOT NULL DEFAULT 0,
+  UNIQUE(work_date, project_id)
+);
+
+INSERT INTO projects (name)
+VALUES ('案件A'), ('案件B'), ('社内作業')
+ON CONFLICT (name) DO NOTHING;

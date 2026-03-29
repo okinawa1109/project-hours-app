@@ -1,0 +1,79 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+}
+
+.app {
+  padding: 16px;
+}
+
+h1,
+h2 {
+  margin: 0 0 12px;
+}
+
+.toolbar {
+  margin-bottom: 16px;
+}
+
+.project-form-box {
+  margin-bottom: 20px;
+  padding: 12px;
+  border: 1px solid #ccc;
+  max-width: 480px;
+  background: #fafafa;
+}
+
+.project-form {
+  display: flex;
+  gap: 8px;
+}
+
+.project-form input[type="text"] {
+  flex: 1;
+  padding: 6px 8px;
+}
+
+.project-form button {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.message {
+  margin: 8px 0 0;
+  font-size: 14px;
+}
+
+.message.error {
+  color: #c62828;
+}
+
+.message.success {
+  color: #2e7d32;
+}
+
+.table-wrap {
+  overflow: auto;
+  margin-bottom: 24px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  background: #fff;
+}
+
+th,
+td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: center;
+}
+
+input[type="number"] {
+  width: 72px;
+}
+
+.summary-box {
+  max-width: 420px;
+}
