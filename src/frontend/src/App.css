@@ -1,6 +1,10 @@
+/* =========================================
+   全体レイアウト
+========================================= */
 body {
   margin: 0;
   font-family: sans-serif;
+  background: #f7f7f7;
 }
 
 .app {
@@ -12,18 +16,30 @@ h2 {
   margin: 0 0 12px;
 }
 
+/* =========================================
+   上部ツールバー
+========================================= */
 .toolbar {
   margin-bottom: 16px;
 }
 
-.project-form-box {
-  margin-bottom: 20px;
+/* =========================================
+   ボックス共通
+========================================= */
+.project-form-box,
+.project-management-box,
+.table-wrap,
+.summary-box,
+.archive-box {
+  margin-bottom: 24px;
   padding: 12px;
   border: 1px solid #ccc;
-  max-width: 480px;
-  background: #fafafa;
+  background: #fff;
 }
 
+/* =========================================
+   プロジェクト追加フォーム
+========================================= */
 .project-form {
   display: flex;
   gap: 8px;
@@ -52,11 +68,9 @@ h2 {
   color: #2e7d32;
 }
 
-.table-wrap {
-  overflow: auto;
-  margin-bottom: 24px;
-}
-
+/* =========================================
+   テーブル共通
+========================================= */
 table {
   border-collapse: collapse;
   width: 100%;
@@ -68,12 +82,64 @@ td {
   border: 1px solid #ccc;
   padding: 6px;
   text-align: center;
+  vertical-align: middle;
 }
 
+th {
+  background: #fafafa;
+}
+
+/* =========================================
+   入力系
+========================================= */
 input[type="number"] {
   width: 72px;
 }
 
-.summary-box {
-  max-width: 420px;
+input[type="text"],
+select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+}
+
+/* =========================================
+   ボタン
+========================================= */
+button {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+button.danger {
+  background: #c62828;
+  color: white;
+  border: none;
+}
+
+.action-cell {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* =========================================
+   工数入力テーブル
+========================================= */
+.table-wrap {
+  overflow: auto;
+}
+
+.status-label {
+  color: #666;
+  font-size: 12px;
+}
+
+/* =========================================
+   下部集計
+========================================= */
+.summary-box,
+.archive-box {
+  max-width: 100%;
 }
