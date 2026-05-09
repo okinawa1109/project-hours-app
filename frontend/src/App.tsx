@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ProjectListPage } from './components/ProjectListPage';
 import { ProjectDetailPage } from './components/ProjectDetailPage';
+import { WorklogCsvTools } from './components/WorklogCsvTools';
 
 function getTodayString() {
   const now = new Date();
@@ -13,12 +14,17 @@ function getTodayString() {
 
 export default function App() {
   const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const [selectedProjectId, setSelectedProjectId] =
+    useState<number | null>(null);
 
-  // null の場合は親プロジェクト一覧を表示します。
-  // 数値が入っている場合は、そのプロジェクトの詳細ページを表示します。
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
-    null
-  );
+  /**
+   * CSV読み込み後に画面を再読み込みするためのキーです。
+   */
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const handleImported = () => {
+    setRefreshKey((prev) => prev + 1);
+  };
 
   return (
     <main style={{ maxWidth: 1200, margin: '0 auto', padding: 24 }}>
@@ -36,13 +42,17 @@ export default function App() {
         </label>
       </section>
 
+      <WorklogCsvTools onImported={handleImported} />
+
       {selectedProjectId === null ? (
         <ProjectListPage
+          key={`list-${selectedDate}-${refreshKey}`}
           selectedDate={selectedDate}
           onOpenProject={(projectId) => setSelectedProjectId(projectId)}
         />
       ) : (
         <ProjectDetailPage
+          key={`detail-${selectedProjectId}-${selectedDate}-${refreshKey}`}
           projectId={selectedProjectId}
           selectedDate={selectedDate}
           onBack={() => setSelectedProjectId(null)}

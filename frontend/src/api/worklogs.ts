@@ -216,3 +216,48 @@ export async function fetchChildProjectWorklogsByMonth(
 
   return res.json();
 }
+
+/**
+ * 工数データをCSV形式でバックアップします。
+ */
+export async function downloadWorklogsBackupCsv(): Promise<Blob> {
+  const res = await fetch(`${API_BASE}/worklogs/backup.csv`);
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('downloadWorklogsBackupCsv failed:', text);
+    throw new Error(text);
+  }
+
+  return res.blob();
+}
+
+/**
+ * CSV形式の工数データを読み込みます。
+ */
+export async function importWorklogsCsv(csvText: string): Promise<{
+  importedCount: number;
+  skippedCount: number;
+  skippedRows: {
+    rowNumber: number;
+    reason: string;
+  }[];
+}> {
+  const res = await fetch(`${API_BASE}/worklogs/import-csv`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      csvText,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error('importWorklogsCsv failed:', text);
+    throw new Error(text);
+  }
+
+  return res.json();
+}
