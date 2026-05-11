@@ -11,6 +11,8 @@ import {
   getProjectTotal,
   getWorklogsByDate,
   upsertWorklog,
+  getParentProjectTotals,
+  getParentBracketTotals,
 } from '../services/worklogService';
 
 function escapeCsvValue(value: unknown): string {
@@ -337,56 +339,68 @@ export async function worklogRoutes(fastify: FastifyInstance) {
    * /api/summary/project-total?project_id=1&scope=month&year_month=2026-05
    */
   fastify.get('/summary/project-total', async (request, reply) => {
-    try {
-      const query = request.query as {
-        project_id?: string;
-        scope?: string;
-        year_month?: string;
-      };
+  try {
+    const query = request.query as {
+      project_id?: string;
+      scope?: string;
+      work_date?: string;
+      year_month?: string;
+    };
 
-      if (!query.project_id) {
-        return reply.status(400).send({
-          message: 'project_id is required',
-        });
-      }
-
-      const projectId = Number(query.project_id);
-
-      if (Number.isNaN(projectId)) {
-        return reply.status(400).send({
-          message: 'invalid project_id',
-        });
-      }
-
-      const scope = query.scope === 'all' ? 'all' : 'month';
-
-      if (scope === 'month' && !query.year_month) {
-        return reply.status(400).send({
-          message: 'year_month is required when scope is month',
-        });
-      }
-
-      const total = await getProjectTotal(
-        projectId,
-        scope,
-        query.year_month
-      );
-
-      return reply.send({
-        project_id: projectId,
-        scope,
-        year_month: query.year_month ?? null,
-        total,
-      });
-    } catch (error: any) {
-      console.error('GET /api/summary/project-total failed:', error);
-
-      return reply.status(500).send({
-        error: 'failed to fetch project total',
-        detail: error?.message ?? String(error),
+    if (!query.project_id) {
+      return reply.status(400).send({
+        message: 'project_id is required',
       });
     }
-  });
+
+    const projectId = Number(query.project_id);
+
+    if (Number.isNaN(projectId)) {
+      return reply.status(400).send({
+        message: 'invalid project_id',
+      });
+    }
+
+    const scope =
+      query.scope === 'day' ||
+      query.scope === 'month' ||
+      query.scope === 'all'
+        ? query.scope
+        : 'month';
+
+    if (scope === 'day' && !query.work_date) {
+      return reply.status(400).send({
+        message: 'work_date is required when scope is day',
+      });
+    }
+
+    if (scope === 'month' && !query.year_month) {
+      return reply.status(400).send({
+        message: 'year_month is required when scope is month',
+      });
+    }
+
+    const total = await getProjectTotal(projectId, scope, {
+      workDate: query.work_date,
+      yearMonth: query.year_month,
+    });
+
+    return reply.send({
+      project_id: projectId,
+      scope,
+      work_date: query.work_date ?? null,
+      year_month: query.year_month ?? null,
+      total,
+    });
+  } catch (error: any) {
+    console.error('GET /api/summary/project-total failed:', error);
+
+    return reply.status(500).send({
+      error: 'failed to fetch project total',
+      detail: error?.message ?? String(error),
+    });
+  }
+});
 
   /**
    * 親プロジェクト配下の子プロジェクト工数を月単位で取得します。
@@ -678,4 +692,63 @@ export async function worklogRoutes(fastify: FastifyInstance) {
       });
     }
   });
+
+  fastify.get('/summary/parent-project-totals', async (request, reply) => {
+  try {
+    const query = request.query as {
+      scope?: string;
+      work_date?: string;
+      year_month?: string;
+    };
+
+    const scope =
+      query.scope === 'day' || query.scope === 'month' || query.scope === 'all'
+        ? query.scope
+        : 'month';
+
+    const rows = await getParentProjectTotals(scope, {
+      workDate: query.work_date,
+      yearMonth: query.year_month,
+    });
+
+    return reply.send(rows);
+  } catch (error: any) {
+    console.error('GET /api/summary/parent-project-totals failed:', error);
+
+    return reply.status(500).send({
+      error: 'failed to fetch parent project totals',
+      detail: error?.message ?? String(error),
+    });
+  }
+});
+
+ fastify.get('/summary/parent-bracket-totals', async (request, reply) => {
+  try {
+    const query = request.query as {
+      scope?: string;
+      work_date?: string;
+      year_month?: string;
+    };
+
+    const scope =
+      query.scope === 'day' || query.scope === 'month' || query.scope === 'all'
+        ? query.scope
+        : 'month';
+
+    const rows = await getParentBracketTotals(scope, {
+      workDate: query.work_date,
+      yearMonth: query.year_month,
+    });
+
+    return reply.send(rows);
+  } catch (error: any) {
+    console.error('GET /api/summary/parent-bracket-totals failed:', error);
+
+    return reply.status(500).send({
+      error: 'failed to fetch parent bracket totals',
+      detail: error?.message ?? String(error),
+    });
+  }
+});
+
 }

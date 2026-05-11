@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   createProject,
   deleteProject,
@@ -6,7 +6,9 @@ import {
   updateProject,
 } from '../api/projects';
 import {
-  fetchProjectTotal,
+  fetchParentBracketTotals,
+  fetchParentProjectTotals,
+  type ParentBracketTotalRow,
   type TotalScope,
 } from '../api/worklogs';
 import { STATUS_OPTIONS } from '../constants/status';
@@ -23,43 +25,72 @@ function getYearMonth(date: string) {
   return date.slice(0, 7);
 }
 
+function getScopeLabel(scope: TotalScope, selectedDate: string) {
+  if (scope === 'day') {
+    return `対象日: ${selectedDate}`;
+  }
+
+  if (scope === 'month') {
+    return `対象月: ${getYearMonth(selectedDate)}`;
+  }
+
+  return '全期間';
+}
+
+function getTotalColumnTitle(scope: TotalScope) {
+  if (scope === 'day') {
+    return '日ごとの合計工数';
+  }
+
+  if (scope === 'month') {
+    return '月ごとの合計工数';
+  }
+
+  return '全体の合計工数';
+}
+
 export function ProjectListPage({ selectedDate, onOpenProject }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [projectTotals, setProjectTotals] = useState<ProjectTotalMap>({});
+  const [bracketTotals, setBracketTotals] = useState<ParentBracketTotalRow[]>(
+    []
+  );
+
   const [newProjectName, setNewProjectName] = useState('');
   const [newStatus, setNewStatus] = useState<ProjectStatus>('todo');
+
   const [totalScope, setTotalScope] = useState<TotalScope>('month');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const yearMonth = getYearMonth(selectedDate);
+  const scopeLabel = useMemo(() => {
+    return getScopeLabel(totalScope, selectedDate);
+  }, [totalScope, selectedDate]);
 
   /**
-   * 親プロジェクト一覧と、親プロジェクトごとの合計工数を取得します。
-   *
-   * totalScope:
-   * - all   : 全体工数
-   * - month : 対象月の工数
+   * 親プロジェクト一覧、親プロジェクト別合計、
+   * 【xx】ごとの集計をまとめて取得します。
    */
   const loadProjects = async () => {
     try {
       setErrorMessage('');
 
-      const projectData = await fetchProjects(null);
+      const [projectData, parentTotalRows, bracketTotalRows] =
+        await Promise.all([
+          fetchProjects(null),
+          fetchParentProjectTotals(totalScope, selectedDate),
+          fetchParentBracketTotals(totalScope, selectedDate),
+        ]);
+
       setProjects(projectData);
+      setBracketTotals(bracketTotalRows);
 
-      const totalEntries = await Promise.all(
-        projectData.map(async (project) => {
-          const total = await fetchProjectTotal(
-            project.id,
-            totalScope,
-            yearMonth
-          );
+      const totalMap: ProjectTotalMap = {};
 
-          return [project.id, total] as const;
-        })
-      );
+      for (const row of parentTotalRows) {
+        totalMap[row.project_id] = Number(row.total_hours ?? 0);
+      }
 
-      setProjectTotals(Object.fromEntries(totalEntries));
+      setProjectTotals(totalMap);
     } catch (error) {
       console.error(error);
       setErrorMessage('プロジェクト一覧または合計工数の取得に失敗しました');
@@ -70,6 +101,9 @@ export function ProjectListPage({ selectedDate, onOpenProject }: Props) {
     loadProjects();
   }, [selectedDate, totalScope]);
 
+  /**
+   * 親プロジェクトを追加します。
+   */
   const handleCreate = async () => {
     if (!newProjectName.trim()) {
       return;
@@ -94,6 +128,9 @@ export function ProjectListPage({ selectedDate, onOpenProject }: Props) {
     }
   };
 
+  /**
+   * 親プロジェクトを更新します。
+   */
   const handleUpdate = async (
     projectId: number,
     name: string,
@@ -114,6 +151,9 @@ export function ProjectListPage({ selectedDate, onOpenProject }: Props) {
     }
   };
 
+  /**
+   * 親プロジェクトを削除します。
+   */
   const handleDelete = async (projectId: number) => {
     const ok = window.confirm('このプロジェクトを削除しますか？');
 
@@ -170,11 +210,17 @@ export function ProjectListPage({ selectedDate, onOpenProject }: Props) {
         )}
       </section>
 
-      <section>
-        <h2>プロジェクト管理</h2>
+      <section style={{ marginBottom: 32 }}>
+        <h2>工数表示</h2>
 
-        <div style={{ marginBottom: 16 }}>
-          <span style={{ marginRight: 8 }}>工数表示:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => setTotalScope('day')}
+            disabled={totalScope === 'day'}
+          >
+            日ごと
+          </button>
 
           <button
             type="button"
@@ -188,17 +234,42 @@ export function ProjectListPage({ selectedDate, onOpenProject }: Props) {
             type="button"
             onClick={() => setTotalScope('all')}
             disabled={totalScope === 'all'}
-            style={{ marginLeft: 8 }}
           >
             全体
           </button>
 
-          <span style={{ marginLeft: 16 }}>
-            {totalScope === 'month'
-              ? `対象月: ${yearMonth}`
-              : '全期間'}
-          </span>
+          <strong style={{ marginLeft: 16 }}>{scopeLabel}</strong>
         </div>
+      </section>
+
+      <section style={{ marginBottom: 32 }}>
+        <h2>【xx】ごとの集計</h2>
+
+        {bracketTotals.length === 0 ? (
+          <p>集計対象がありません。</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th>分類</th>
+                <th>{getTotalColumnTitle(totalScope)}</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {bracketTotals.map((row) => (
+                <tr key={row.bracket_name}>
+                  <td>{row.bracket_name}</td>
+                  <td>{row.total_hours.toFixed(2)} 時間</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section>
+        <h2>プロジェクト管理</h2>
 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -206,11 +277,7 @@ export function ProjectListPage({ selectedDate, onOpenProject }: Props) {
               <th>ID</th>
               <th>プロジェクト名</th>
               <th>ステータス</th>
-              <th>
-                {totalScope === 'month'
-                  ? '月ごとの合計工数'
-                  : '全体の合計工数'}
-              </th>
+              <th>{getTotalColumnTitle(totalScope)}</th>
               <th>操作</th>
             </tr>
           </thead>

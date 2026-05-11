@@ -197,20 +197,32 @@ export async function getProjectDailyTotal(
  */
 export async function getProjectTotal(
   projectId: number,
-  scope: 'all' | 'month',
-  yearMonth?: string
+  scope: 'day' | 'month' | 'all',
+  options?: {
+    workDate?: string;
+    yearMonth?: string;
+  }
 ): Promise<number> {
   const params: Array<number | string> = [projectId];
 
-  let monthCondition = '';
+  let dateCondition = '';
+
+  if (scope === 'day') {
+    if (!options?.workDate) {
+      throw new Error('workDate is required when scope is day');
+    }
+
+    params.push(options.workDate);
+    dateCondition = `AND w.work_date = $2`;
+  }
 
   if (scope === 'month') {
-    if (!yearMonth) {
+    if (!options?.yearMonth) {
       throw new Error('yearMonth is required when scope is month');
     }
 
-    params.push(yearMonth);
-    monthCondition = `AND TO_CHAR(w.work_date, 'YYYY-MM') = $2`;
+    params.push(options.yearMonth);
+    dateCondition = `AND TO_CHAR(w.work_date, 'YYYY-MM') = $2`;
   }
 
   const result = await pool.query(
@@ -226,7 +238,7 @@ export async function getProjectTotal(
           WHERE parent_project_id = $1
         )
       )
-      ${monthCondition}
+      ${dateCondition}
     `,
     params
   );
@@ -490,4 +502,130 @@ export async function ensureProjectForImport(input: {
   );
 
   return Number(created.rows[0].id);
+}
+
+export async function getParentProjectTotals(
+  scope: 'day' | 'month' | 'all',
+  options?: {
+    workDate?: string;
+    yearMonth?: string;
+  }
+) {
+  const params: string[] = [];
+
+  let dateCondition = '';
+
+  if (scope === 'day') {
+    if (!options?.workDate) {
+      throw new Error('workDate is required when scope is day');
+    }
+
+    params.push(options.workDate);
+    dateCondition = `AND w.work_date = $1`;
+  }
+
+  if (scope === 'month') {
+    if (!options?.yearMonth) {
+      throw new Error('yearMonth is required when scope is month');
+    }
+
+    params.push(options.yearMonth);
+    dateCondition = `AND TO_CHAR(w.work_date, 'YYYY-MM') = $1`;
+  }
+
+  const result = await pool.query(
+    `
+    SELECT
+      p.id AS project_id,
+      p.name AS project_name,
+      p.status AS project_status,
+      p.archived AS project_archived,
+      COALESCE(SUM(w.hours), 0) AS total_hours
+    FROM projects p
+    LEFT JOIN projects child
+      ON child.parent_project_id = p.id
+    LEFT JOIN worklogs w
+      ON (
+        w.project_id = p.id
+        OR w.project_id = child.id
+      )
+      ${dateCondition}
+    WHERE p.parent_project_id IS NULL
+    GROUP BY
+      p.id,
+      p.name,
+      p.status,
+      p.archived
+    ORDER BY p.archived ASC, p.id ASC
+    `,
+    params
+  );
+
+  return result.rows.map((row) => ({
+    ...row,
+    total_hours: Number(row.total_hours),
+  }));
+}
+
+export async function getParentBracketTotals(
+  scope: 'day' | 'month' | 'all',
+  options?: {
+    workDate?: string;
+    yearMonth?: string;
+  }
+) {
+  const params: string[] = [];
+
+  let dateCondition = '';
+
+  if (scope === 'day') {
+    if (!options?.workDate) {
+      throw new Error('workDate is required when scope is day');
+    }
+
+    params.push(options.workDate);
+    dateCondition = `AND w.work_date = $1`;
+  }
+
+  if (scope === 'month') {
+    if (!options?.yearMonth) {
+      throw new Error('yearMonth is required when scope is month');
+    }
+
+    params.push(options.yearMonth);
+    dateCondition = `AND TO_CHAR(w.work_date, 'YYYY-MM') = $1`;
+  }
+
+  const result = await pool.query(
+    `
+    SELECT
+      COALESCE(
+        SUBSTRING(p.name FROM '【([^】]+)】'),
+        '未分類'
+      ) AS bracket_name,
+      COALESCE(SUM(w.hours), 0) AS total_hours
+    FROM projects p
+    LEFT JOIN projects child
+      ON child.parent_project_id = p.id
+    LEFT JOIN worklogs w
+      ON (
+        w.project_id = p.id
+        OR w.project_id = child.id
+      )
+      ${dateCondition}
+    WHERE p.parent_project_id IS NULL
+    GROUP BY
+      COALESCE(
+        SUBSTRING(p.name FROM '【([^】]+)】'),
+        '未分類'
+      )
+    ORDER BY bracket_name ASC
+    `,
+    params
+  );
+
+  return result.rows.map((row) => ({
+    bracket_name: row.bracket_name,
+    total_hours: Number(row.total_hours),
+  }));
 }
